@@ -63,10 +63,10 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                             <div className="flex items-center gap-2 ml-2">
                                 {/* Home Player */}
                                 <div
-                                    className={`flex-1 text-right ${event.team === "away" ? "opacity-50" : ""
+                                    className={`flex-1 text-right ${(event.type === "goal" || event.type === "yellow-card" || event.type === "red-yellow-card") && event.team === "away" ? "opacity-50" : ""
                                         }`}
                                 >
-                                    {event.team === "home" && <PlayerLink player={event.player} />}
+                                    {(event.type === "goal" || event.type === "yellow-card" || event.type === "red-yellow-card") && event.team === "home" && <PlayerLink player={event.player} />}
                                 </div>
 
                                 {/* Icon */}
@@ -85,10 +85,10 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
 
                                 {/* Away Player */}
                                 <div
-                                    className={`flex-1 ${event.team === "home" ? "opacity-50" : ""
+                                    className={`flex-1 ${(event.type === "goal" || event.type === "yellow-card" || event.type === "red-yellow-card") && event.team === "home" ? "opacity-50" : ""
                                         }`}
                                 >
-                                    {event.team === "away" && <PlayerLink player={event.player} />}
+                                    {(event.type === "goal" || event.type === "yellow-card" || event.type === "red-yellow-card") && event.team === "away" && <PlayerLink player={event.player} />}
                                 </div>
                             </div>
                         )}
