@@ -1,4 +1,4 @@
-// lib/api.ts
+// src/lib/api.ts
 import type { RawMatchData } from "@/types/match";
 
 export interface AnalyzeInput {
@@ -18,6 +18,24 @@ export const analyzeCommentary = async (
 
     if (!res.ok) {
         throw new Error("Analysis failed");
+    }
+
+    return res.json();
+};
+
+export const analyzeMedia = async (
+    file: File
+): Promise<RawMatchData> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch("http://localhost:8000/analyze-media", {
+        method: "POST",
+        body: formData,
+    });
+
+    if (!res.ok) {
+        throw new Error("Media analysis failed");
     }
 
     return res.json();

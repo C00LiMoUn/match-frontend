@@ -1,19 +1,19 @@
 // src/components/AnalysisForm.tsx
-import { useState, useRef, ChangeEvent } from "react";
-import { analyzeCommentary } from "@/lib/api";
+import { useState, useRef } from "react";
+import { analyzeCommentary, analyzeMedia } from "@/lib/api";
 import MatchTimeline from "./MatchTimeline";
 import type { RawMatchData } from "@/types/match";
 import { mapRawToMatchEvents } from "@/lib/matchMapper";
+import { FileUploader } from "@/components/ui/file-uploader";
 
 // shadcn imports
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, History, Upload, FileText } from "lucide-react";
+import { Loader2, Send, History, FileText, UploadCloud } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { FileInput } from "@/components/ui/file-input";
 
 export default function AnalysisForm() {
     const [commentary, setCommentary] = useState("");
@@ -21,39 +21,41 @@ export default function AnalysisForm() {
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [activeTab, setActiveTab] = useState("text");
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [file, setFile] = useState<File | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        let contentToAnalyze = commentary;
-
-        // If file is selected in the file tab
-        if (activeTab === "file" && fileInputRef.current?.files?.[0]) {
-            try {
-                contentToAnalyze = await readFileAsText(fileInputRef.current.files[0]);
-            } catch (error) {
-                toast.error("Error reading file", {
-                    description: "Could not read the selected file",
-                });
-                return;
+        if (activeTab === "file" && file) {
+            if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
+                return await handleMediaUpload(file);
+            } else {
+                const content = await readFileAsText(file);
+                if (!content.trim()) {
+                    toast.error("The file is empty");
+                    return;
+                }
+                return await analyzeTextContent(content);
             }
         }
 
-        if (!contentToAnalyze.trim()) {
+        if (!commentary.trim()) {
             toast.error("Please provide commentary to analyze");
             return;
         }
 
+        await analyzeTextContent(commentary);
+    };
+
+    const handleMediaUpload = async (file: File) => {
         setLoading(true);
         setProgress(0);
         setMatchData(null);
 
-        const toastId = toast.loading("Analyzing commentary...", {
-            description: "Processing your match data"
+        const toastId = toast.loading("Uploading media file...", {
+            description: "Processing your audio/video file"
         });
 
-        // Simulate progress
         const interval = setInterval(() => {
             setProgress((prev) => {
                 if (prev >= 90) {
@@ -65,7 +67,7 @@ export default function AnalysisForm() {
         }, 300);
 
         try {
-            const data = await analyzeCommentary({ commentary: contentToAnalyze });
+            const data = await analyzeMedia(file);
             setMatchData(data);
             setProgress(100);
 
@@ -81,7 +83,53 @@ export default function AnalysisForm() {
                 description: errorMessage,
                 action: {
                     label: "Try again",
-                    onClick: handleSubmit,
+                    onClick: () => handleMediaUpload(file),
+                },
+                duration: 5000,
+            });
+        } finally {
+            clearInterval(interval);
+            setLoading(false);
+        }
+    };
+
+    const analyzeTextContent = async (content: string) => {
+        setLoading(true);
+        setProgress(0);
+        setMatchData(null);
+
+        const toastId = toast.loading("Analyzing commentary...", {
+            description: "Processing your match data"
+        });
+
+        const interval = setInterval(() => {
+            setProgress((prev) => {
+                if (prev >= 90) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 10;
+            });
+        }, 300);
+
+        try {
+            const data = await analyzeCommentary({ commentary: content });
+            setMatchData(data);
+            setProgress(100);
+
+            toast.success("Analysis Complete", {
+                id: toastId,
+                description: "Match events have been successfully extracted",
+                duration: 3000,
+            });
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : "Analysis failed";
+            toast.error("Analysis Error", {
+                id: toastId,
+                description: errorMessage,
+                action: {
+                    label: "Try again",
+                    onClick: () => analyzeTextContent(content),
                 },
                 duration: 5000,
             });
@@ -97,14 +145,7 @@ export default function AnalysisForm() {
         78' - GOAL! Manchester United 2-0 Liverpool. Marcus Rashford doubles the lead with a clinical finish!
         89' - Substitution for Liverpool: Thiago Alcântara replaces Jordan Henderson.`);
         setActiveTab("text");
-    };
-
-    const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) {
-            toast.message("File selected", {
-                description: e.target.files[0].name,
-            });
-        }
+        setFile(null);
     };
 
     const readFileAsText = (file: File): Promise<string> => {
@@ -144,7 +185,7 @@ export default function AnalysisForm() {
                                 Text Input
                             </TabsTrigger>
                             <TabsTrigger value="file">
-                                <Upload className="w-4 h-4 mr-2" />
+                                <UploadCloud className="w-4 h-4 mr-2" />
                                 File Upload
                             </TabsTrigger>
                         </TabsList>
@@ -160,13 +201,11 @@ export default function AnalysisForm() {
                         </TabsContent>
 
                         <TabsContent value="file" className="pt-4">
-                            <FileInput
-                                ref={fileInputRef}
-                                accept=".txt,.pdf,.doc,.docx"
-                                onChange={handleFileChange}
-                                disabled={loading}
-                                label="Upload commentary file"
-                                description="Supports TXT, PDF, DOC, DOCX files"
+                            <FileUploader
+                                value={file ? [file] : []}
+                                onChange={(files) => setFile(files[0] || null)}
+                                onRemove={() => setFile(null)}
+                                isLoading={loading}
                             />
                         </TabsContent>
                     </Tabs>
@@ -176,7 +215,7 @@ export default function AnalysisForm() {
                             type="submit"
                             className="flex-1"
                             onClick={handleSubmit}
-                            disabled={loading}
+                            disabled={loading || (activeTab === "file" && !file)}
                         >
                             {loading ? (
                                 <>
