@@ -105,7 +105,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                     {event.type === "yellow-card" && (
                                         <div className="flex items-center gap-2 ml-2">
                                             <div
-                                                className={`flex-1 min-w-0 text-right ${event.team === "away" ? "opacity-50" : ""
+                                                className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""
                                                     }`}
                                             >
                                                 {event.team === "home" && (
@@ -117,7 +117,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                             </div>
                                             <div className="w-8"></div>
                                             <div
-                                                className={`flex-1 min-w-0 ${event.team === "home" ? "opacity-50" : ""
+                                                className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""
                                                     }`}
                                             >
                                                 {event.team === "away" && (

@@ -33,6 +33,7 @@ type HalfEvent = {
     type: "half" | "full";
     label: string;
     score: string;
+    time: string;
 };
 
 export type MatchEvent = GoalEvent | CardEvent | HalfEvent;
