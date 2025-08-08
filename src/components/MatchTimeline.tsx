@@ -33,7 +33,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
     return (
         <Card className="overflow-hidden w-full">
             {/* Match Header - Responsive layout */}
-            <div className="flex items-center justify-center p-4 border-b gap-2 sm:gap-8">
+            <div className="flex items-center justify-center  mx-4 sm:mx-6 p-4 border-b gap-2 sm:gap-8">
                 <TeamBadge team={homeTeam} isHome={true} />
                 <div className="text-center min-w-[100px]">
                     <div className="text-lg sm:text-xl font-bold">{finalScore}</div>
@@ -47,7 +47,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                 ref={timelineRef}
                 className="relative max-h-[500px] overflow-y-auto overflow-x-hidden"
             >
-                <div className="relative border-l border-muted ml-4 sm:ml-6 p-2 sm:p-4 space-y-3 sm:space-y-4">
+                <div className="relative border-l border-muted mx-4 sm:mx-6 p-2 sm:p-4 space-y-3 sm:space-y-4">
                     <AnimatePresence>
                         {events.length === 0 ? (
                             <motion.p
@@ -74,7 +74,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
 
                                     {/* Goal Event */}
                                     {event.type === "goal" && (
-                                        <div className="flex items-center gap-1 sm:gap-2 ml-2">
+                                        <div className="flex items-center gap-1 sm:gap-2">
                                             {/* Home team scorer */}
                                             <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
                                                 {event.team === "home" && (
@@ -87,7 +87,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                             </div>
 
                                             {/* Score */}
-                                            <div className="flex items-center justify-center min-w-[2rem] sm:min-w-[3rem]">
+                                            <div className="flex items-center justify-center">
                                                 {event.score && (
                                                     <span className="text-xs font-bold text-green-500 whitespace-nowrap">
                                                         {event.score}
