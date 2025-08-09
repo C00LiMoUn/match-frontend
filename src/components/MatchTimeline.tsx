@@ -110,7 +110,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                     )}
 
                                     {/* Yellow Card Event */}
-                                    {event.type === "yellow-card" && (
+                                    {event.type === "yellow_card" && (
                                         <div className="flex items-center gap-1 sm:gap-2 ml-2">
                                             <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
                                                 {event.team === "home" && (
@@ -177,7 +177,7 @@ const TeamBadge: React.FC<{ team: Team; isHome: boolean }> = ({
 
 // Player badge with responsive text and optional icon placement
 const PlayerBadge: React.FC<{
-    player: Player;
+    player?: string | null;
     icon?: React.ReactNode;
     iconAfter?: boolean;
     className?: string;
@@ -189,7 +189,7 @@ const PlayerBadge: React.FC<{
 }) => (
         <div className={`flex items-center gap-1 min-w-0 ${className}`}>
             {!iconAfter && icon}
-            <span className="truncate font-medium">{player.name}</span>
+            <span className="truncate font-medium">{player || "Unknown Player"}</span>
             {iconAfter && icon}
         </div>
     );

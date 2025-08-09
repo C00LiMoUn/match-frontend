@@ -1,48 +1,67 @@
 // src/lib/matchMapper.ts
-import type { MatchEvent, Player, Team } from "@/types/match";
+import type { MatchEvent, MatchResultResponse, Player, Team } from "@/types/match";
 
 export const mapRawToMatchEvents = (
-    data: any,
+    rawData: MatchResultResponse,
     homeTeamObj: Team,
     awayTeamObj: Team
 ): {
     finalScore: string;
     events: MatchEvent[];
+    // players: Player[];
 } => {
-    const { home_team, away_team, score, analysis } = data;
+    console.log("Mapping raw data to match events:", rawData);
+    const { home_team, away_team, score, analysis } = rawData;
     const { events: rawEvents } = analysis;
+
+    // Safe extraction with defaults
+    const events: MatchEvent[] = Array.isArray(rawEvents)
+        ? rawEvents
+            .filter((e): e is MatchEvent => e !== null && typeof e === "object")
+            .map((e): MatchEvent => ({
+                ...e,
+                player: e.player || null,
+                player_in: e.player_in || null,
+                player_out: e.player_out || null,
+                team: e.team || null,
+                time: e.time || "?",
+                details: e.details || "",
+            }))
+        : [];
 
     // Initialize score tracking
     let homeScore = 0;
     let awayScore = 0;
-    const events: MatchEvent[] = [];
+    const sorted_events: MatchEvent[] = [];
 
-    // First half events
-    const firstHalfEvents = (rawEvents as any[])
-        .filter(ev => ev.time <= 45)
-        .sort((a, b) => a.time - b.time);
+    const firstHalfEvents: MatchEvent[] = events
+        .filter(ev => {
+            const numericTime = parseInt(ev.time, 10);
+            return !isNaN(numericTime) && numericTime <= 45;
+        })
+        .sort((a, b) => parseInt(a.time, 10) - parseInt(b.time, 10));
 
     // Process first half events
     firstHalfEvents.forEach(ev => {
         const isHome = ev.team === home_team;
         const team: "home" | "away" = isHome ? "home" : "away";
-        const player: Player = { name: ev.player };
+        const player = ev.player;
         const time = `${ev.time}'`;
 
         if (ev.type === "goal") {
             if (isHome) homeScore++;
             else awayScore++;
 
-            events.push({
+            sorted_events.push({
                 type: "goal",
-                time,
-                player,
-                team,
+                time: time,
+                player: player,
+                team: team,
                 score: `${homeScore} - ${awayScore}`
             });
         } else if (ev.type === "yellow_card") {
-            events.push({
-                type: "yellow-card",
+            sorted_events.push({
+                type: "yellow_card",
                 time,
                 player,
                 team
@@ -52,7 +71,7 @@ export const mapRawToMatchEvents = (
 
     // Add halftime event with current score
     if (firstHalfEvents.length > 0) {
-        events.push({
+        sorted_events.push({
             type: "half",
             label: "HT",
             score: `${homeScore} - ${awayScore}`,
@@ -60,23 +79,27 @@ export const mapRawToMatchEvents = (
         });
     }
 
+
     // Second half events
-    const secondHalfEvents = (rawEvents as any[])
-        .filter(ev => ev.time > 45)
-        .sort((a, b) => a.time - b.time);
+    const secondHalfEvents: MatchEvent[] = events
+        .filter(ev => {
+            const numericTime = parseInt(ev.time, 10);
+            return !isNaN(numericTime) && numericTime > 45;
+        })
+        .sort((a, b) => parseInt(a.time, 10) - parseInt(b.time, 10));
 
     // Process second half events
     secondHalfEvents.forEach(ev => {
         const isHome = ev.team === home_team;
         const team: "home" | "away" = isHome ? "home" : "away";
-        const player: Player = { name: ev.player };
+        const player = ev.player;
         const time = `${ev.time}'`;
 
         if (ev.type === "goal") {
             if (isHome) homeScore++;
             else awayScore++;
 
-            events.push({
+            sorted_events.push({
                 type: "goal",
                 time,
                 player,
@@ -84,8 +107,8 @@ export const mapRawToMatchEvents = (
                 score: `${homeScore} - ${awayScore}`
             });
         } else if (ev.type === "yellow_card") {
-            events.push({
-                type: "yellow-card",
+            sorted_events.push({
+                type: "yellow_card",
                 time,
                 player,
                 team
@@ -95,7 +118,7 @@ export const mapRawToMatchEvents = (
 
     // Final score
     const finalScore = `${homeScore} - ${awayScore}`;
-    events.push({
+    sorted_events.push({
         type: "full",
         label: "FT",
         score: finalScore,
@@ -107,6 +130,6 @@ export const mapRawToMatchEvents = (
     //     const parseTime = (t: string) => parseInt(t.replace(/[^0-9]/g, ''), 10) || 0;
     //     return parseTime(a.time) - parseTime(b.time);
     // });
-
-    return { finalScore, events };
+    console.log("Sorted events:", sorted_events);
+    return { finalScore, events: sorted_events };
 };

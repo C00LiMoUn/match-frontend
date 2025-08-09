@@ -2,7 +2,7 @@
 import { useState, useRef } from "react";
 import { analyzeCommentary, analyzeMedia } from "@/lib/api";
 import MatchTimeline from "./MatchTimeline";
-import type { RawMatchData } from "@/types/match";
+import type { MatchResultResponse, RawMatchData } from "@/types/match";
 import { mapRawToMatchEvents } from "@/lib/matchMapper";
 import { FileUploader } from "@/components/ui/file-uploader";
 
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 
 export default function AnalysisForm() {
     const [commentary, setCommentary] = useState("");
-    const [matchData, setMatchData] = useState<RawMatchData | null>(null);
+    const [matchData, setMatchData] = useState<MatchResultResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [activeTab, setActiveTab] = useState("text");
@@ -170,7 +170,7 @@ export default function AnalysisForm() {
     const { finalScore, events } = matchData
         ? mapRawToMatchEvents(matchData, homeTeam, awayTeam)
         : { finalScore: "0 - 0", events: [] };
-
+    console.log("Analysis result:", events);
     return (
         <div className="space-y-6">
             <Card>
