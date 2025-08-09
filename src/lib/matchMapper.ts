@@ -125,11 +125,33 @@ export const mapRawToMatchEvents = (
         time: "90'"
     });
 
+    // Add synthetic substitution event at 60'
+    sorted_events.push({
+        type: "substitution",
+        time: "15'",
+        team: "away",
+        player_out: "زياد العونلي",
+        player_in: "محمد الحبيب يكن",
+    });
+
+    // Add synthetic penalty goal event at 75'
+    homeScore++; // update score if penalty is scored
+
+    sorted_events.push({
+        type: "penalty",
+        time: "75'",
+        team: "home",
+        player: "Leo Striker",
+        score: `${homeScore} - ${awayScore}`,
+    });
     // Sort all events by time
-    // events.sort((a, b) => {
-    //     const parseTime = (t: string) => parseInt(t.replace(/[^0-9]/g, ''), 10) || 0;
-    //     return parseTime(a.time) - parseTime(b.time);
-    // });
+    sorted_events.sort((a, b) => {
+        const parseTime = (t: string) => parseInt(t.replace(/[^0-9]/g, ''), 10) || 0;
+        return parseTime(a.time) - parseTime(b.time);
+    });
+
+
+
     console.log("Sorted events:", sorted_events);
     return { finalScore, events: sorted_events };
 };

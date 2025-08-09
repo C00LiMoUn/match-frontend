@@ -136,6 +136,7 @@ export default function AnalysisForm() {
         } finally {
             clearInterval(interval);
             setLoading(false);
+            setProgress(100);
         }
     };
 

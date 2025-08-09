@@ -1,6 +1,6 @@
 // src/components/MatchTimeline.tsx
 import { Card } from "@/components/ui/card";
-import { GoalIcon, YellowCardIcon } from "@/components/icons";
+import { GoalIcon, RedCardIcon, YellowCardIcon, SubstitutionIcon } from "@/components/icons";
 import type { MatchEvent, Player, Team } from "@/types/match";
 import { useEffect, useRef } from "react";
 import type { FC } from "react";
@@ -81,6 +81,8 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                                     <PlayerBadge
                                                         player={event.player}
                                                         icon={<GoalIcon />}
+                                                        iconAfter
+
                                                         className="text-xs sm:text-sm"
                                                     />
                                                 )}
@@ -101,7 +103,6 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                                     <PlayerBadge
                                                         player={event.player}
                                                         icon={<GoalIcon />}
-                                                        iconAfter
                                                         className="text-xs sm:text-sm"
                                                     />
                                                 )}
@@ -111,29 +112,107 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
 
                                     {/* Yellow Card Event */}
                                     {event.type === "yellow_card" && (
-                                        <div className="flex items-center gap-1 sm:gap-2 ml-2">
+                                        <div className="flex items-center gap-1 sm:gap-2">
                                             <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
                                                 {event.team === "home" && (
                                                     <PlayerBadge
                                                         player={event.player}
                                                         icon={<YellowCardIcon />}
+                                                        iconAfter
+
                                                         className="text-xs sm:text-sm"
                                                     />
                                                 )}
                                             </div>
-                                            <div className="w-4 sm:w-8"></div>
-                                            <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
+                                            {/* Spacer */}
+                                            <div className="flex items-center justify-center">
+                                                <span className="text-xs font-bold opacity-0 whitespace-nowrap">0 - 0</span>
+                                            </div>                                           <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
                                                 {event.team === "away" && (
                                                     <PlayerBadge
                                                         player={event.player}
                                                         icon={<YellowCardIcon />}
-                                                        iconAfter
                                                         className="text-xs sm:text-sm"
                                                     />
                                                 )}
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* Yellow Card Event */}
+                                    {event.type === "red_card" && (
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
+                                                {event.team === "home" && (
+                                                    <PlayerBadge
+                                                        player={event.player}
+                                                        icon={<RedCardIcon />}
+                                                        iconAfter
+
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                            {/* Spacer */}
+                                            <div className="flex items-center justify-center">
+                                                <span className="text-xs font-bold opacity-0 whitespace-nowrap">0 - 0</span>
+                                            </div>                                              <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
+                                                {event.team === "away" && (
+                                                    <PlayerBadge
+                                                        player={event.player}
+                                                        icon={<RedCardIcon />}
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {event.type === "substitution" && (
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            {/* Home team substitution */}
+                                            <div className={`flex flex-1 min-w-0 justify-end gap-2 ${event.team === "away" ? "opacity-50" : ""}`}>
+                                                {event.team === "home" && (
+                                                    <>
+                                                        <PlayerBadge
+                                                            player={event.player_out}
+                                                            className="text-xs text-gray-500 line-through max-w-[100px] truncate"
+                                                        />
+                                                        <PlayerBadge
+                                                            player={event.player_in}
+                                                            className="text-xs sm:text-sm"
+                                                            icon={<SubstitutionIcon />}
+                                                            iconAfter
+                                                        />
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Spacer */}
+                                            <div className="flex items-center justify-center">
+                                                <span className="text-xs font-bold opacity-0 whitespace-nowrap">0 - 0</span>
+                                            </div>
+
+                                            {/* Away team substitution */}
+                                            <div className={`flex flex-1 min-w-0 justify-start gap-2 ${event.team === "home" ? "opacity-50" : ""}`}>
+                                                {event.team === "away" && (
+                                                    <>
+                                                        <PlayerBadge
+                                                            player={event.player_in}
+                                                            className="text-xs sm:text-sm"
+                                                            icon={<SubstitutionIcon />}
+                                                        />
+                                                        <PlayerBadge
+                                                            player={event.player_out}
+                                                            className="text-xs text-gray-500 line-through max-w-[100px] truncate"
+                                                        />
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+
 
                                     {/* Half Time / Full Time */}
                                     {(event.type === "half" || event.type === "full") && (
