@@ -15,6 +15,7 @@ export type PlayerPosition =
 export type EventType =
     | "goal"
     | "yellow_card"
+    | "yellow_red"
     | "red_card"
     | "substitution"
     | "penalty"

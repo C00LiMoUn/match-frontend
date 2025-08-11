@@ -1,5 +1,6 @@
 // src/lib/api.ts
-import type { MatchResultResponse, RawMatchData } from "@/types/match";
+import type { MatchResultResponse } from "@/types/match";
+import { http } from "@/lib/http";
 
 export interface AnalyzeInput {
     commentary: string;
@@ -13,28 +14,12 @@ export interface ApiError {
 export const analyzeCommentary = async (
     input: AnalyzeInput
 ): Promise<MatchResultResponse> => {
-    const res = await fetch("http://localhost:8000/analyze", {
+    const data = await http<MatchResultResponse>({
+        path: "/analyze",
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(input),
+        body: input,
     });
 
-    if (!res.ok) {
-        let errorMessage = "تحليل التعليق فشل";
-        try {
-            const errorData: ApiError = await res.json();
-            errorMessage = errorData.detail || errorMessage;
-        } catch (e) {
-            errorMessage = res.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
-    }
-
-    const data: MatchResultResponse = await res.json();
-
-    console.log("Raw match data:", data);
     // Fallback defaults if backend returns incomplete data
     return {
         ...data,
@@ -52,14 +37,11 @@ export const analyzeMedia = async (
     const formData = new FormData();
     formData.append('file', file);
 
-    const res = await fetch("http://localhost:8000/analyze-media", {
+    return await http<MatchResultResponse>({
+        path: "/analyze-media",
         method: "POST",
-        body: formData,
+        asFormData: true,
+        // body typed as unknown to keep http generic
+        body: formData as unknown as BodyInit,
     });
-
-    if (!res.ok) {
-        throw new Error("Media analysis failed");
-    }
-
-    return res.json();
 };

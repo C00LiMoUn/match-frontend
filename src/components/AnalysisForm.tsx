@@ -1,8 +1,9 @@
 // src/components/AnalysisForm.tsx
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { analyzeCommentary, analyzeMedia } from "@/lib/api";
+import { logger } from "@/lib/logger";
 import MatchTimeline from "./MatchTimeline";
-import type { MatchResultResponse, RawMatchData } from "@/types/match";
+import type { MatchResultResponse } from "@/types/match";
 import { mapRawToMatchEvents } from "@/lib/matchMapper";
 import { FileUploader } from "@/components/ui/file-uploader";
 
@@ -30,12 +31,18 @@ export default function AnalysisForm() {
             if (file.type.startsWith('audio/') || file.type.startsWith('video/')) {
                 return await handleMediaUpload(file);
             } else {
-                const content = await readFileAsText(file);
-                if (!content.trim()) {
-                    toast.error("The file is empty");
+                try {
+                    const content = await readFileAsText(file);
+                    if (!content.trim()) {
+                        toast.error("The file is empty");
+                        return;
+                    }
+                    return await analyzeTextContent(content);
+                } catch (readErr) {
+                    const message = readErr instanceof Error ? readErr.message : "Failed to read file";
+                    toast.error("File Read Error", { description: message });
                     return;
                 }
-                return await analyzeTextContent(content);
             }
         }
 
@@ -77,6 +84,7 @@ export default function AnalysisForm() {
                 duration: 3000,
             });
         } catch (err) {
+            logger.error("Media analysis failed", err);
             const errorMessage = err instanceof Error ? err.message : "Analysis failed";
             toast.error("Analysis Error", {
                 id: toastId,
@@ -123,6 +131,7 @@ export default function AnalysisForm() {
                 duration: 3000,
             });
         } catch (err) {
+            logger.error("Text analysis failed", err);
             const errorMessage = err instanceof Error ? err.message : "Analysis failed";
             toast.error("Analysis Error", {
                 id: toastId,
@@ -169,9 +178,9 @@ export default function AnalysisForm() {
     const homeTeam = { name: matchData?.home_team || "Home Team", logo: "/logo.png" };
     const awayTeam = { name: matchData?.away_team || "Away Team", logo: "/logo.png" };
     const { finalScore, events } = matchData
-        ? mapRawToMatchEvents(matchData, homeTeam, awayTeam)
+        ? mapRawToMatchEvents(matchData)
         : { finalScore: "0 - 0", events: [] };
-    console.log("Analysis result:", events);
+    logger.debug("Analysis result:", events);
     return (
         <div className="space-y-6">
             <Card>

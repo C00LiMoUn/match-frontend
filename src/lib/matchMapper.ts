@@ -1,21 +1,19 @@
 // src/lib/matchMapper.ts
-import type { MatchEvent, MatchResultResponse, Player, Team } from "@/types/match";
+import type { MatchEvent, MatchResultResponse } from "@/types/match";
+import { logger } from "@/lib/logger";
 
 export const mapRawToMatchEvents = (
-    rawData: MatchResultResponse,
-    homeTeamObj: Team,
-    awayTeamObj: Team
+    rawData: MatchResultResponse
 ): {
     finalScore: string;
     events: MatchEvent[];
-    // players: Player[];
 } => {
-    console.log("Mapping raw data to match events:", rawData);
-    const { home_team, away_team, score, analysis } = rawData;
+    logger.debug("Mapping raw data to match events:", rawData);
+    const { home_team, analysis } = rawData;
     const { events: rawEvents } = analysis;
 
     // Safe extraction with defaults
-    const events: MatchEvent[] = Array.isArray(rawEvents)
+    const eventsRaw: MatchEvent[] = Array.isArray(rawEvents)
         ? rawEvents
             .filter((e): e is MatchEvent => e !== null && typeof e === "object")
             .map((e): MatchEvent => ({
@@ -28,6 +26,37 @@ export const mapRawToMatchEvents = (
                 details: e.details || "",
             }))
         : [];
+
+    // Merge yellow + red shown to the same player in the same minute into a single yellow_red
+    const events: MatchEvent[] = (() => {
+        const toRemove = new Set<number>();
+        const indexByKey: Record<string, number[]> = {};
+        const makeKey = (ev: MatchEvent): string => {
+            const minute = parseInt(ev.time, 10) || 0;
+            const playerKey = ev.player || "";
+            const teamKey = ev.team || "";
+            return `${minute}|${teamKey}|${playerKey}`;
+        };
+        eventsRaw.forEach((ev, idx) => {
+            if (!ev.player || !ev.team) return; // only merge when player and team are known
+            const key = makeKey(ev);
+            (indexByKey[key] ||= []).push(idx);
+        });
+        Object.values(indexByKey).forEach((indices) => {
+            const types = indices.map(i => eventsRaw[i].type);
+            const hasYellow = types.includes("yellow_card");
+            const hasRed = types.includes("red_card");
+            if (hasYellow && hasRed) {
+                // Find the red card event; repurpose it into yellow_red and drop yellow
+                const redIndex = indices.find(i => eventsRaw[i].type === "red_card");
+                if (redIndex !== undefined) {
+                    eventsRaw[redIndex] = { ...eventsRaw[redIndex], type: "yellow_red", label: eventsRaw[redIndex].label || "Second yellow → Red" };
+                }
+                indices.forEach(i => { if (eventsRaw[i].type === "yellow_card") toRemove.add(i); });
+            }
+        });
+        return eventsRaw.filter((_, idx) => !toRemove.has(idx));
+    })();
 
     // Initialize score tracking
     let homeScore = 0;
@@ -65,6 +94,36 @@ export const mapRawToMatchEvents = (
                 time,
                 player,
                 team
+            });
+        } else if (ev.type === "red_card") {
+            sorted_events.push({
+                type: "red_card",
+                time,
+                player,
+                team,
+            });
+        } else if (ev.type === "yellow_red") {
+            sorted_events.push({
+                type: "yellow_red",
+                time,
+                player,
+                team,
+            });
+        } else if (ev.type === "substitution") {
+            sorted_events.push({
+                type: "substitution",
+                time,
+                team,
+                player_in: ev.player_in || null,
+                player_out: ev.player_out || null,
+            });
+        } else if (ev.type === "penalty") {
+            sorted_events.push({
+                type: "penalty",
+                time,
+                player,
+                team,
+                score: ev.score || undefined,
             });
         }
     });
@@ -113,6 +172,29 @@ export const mapRawToMatchEvents = (
                 player,
                 team
             });
+        } else if (ev.type === "red_card") {
+            sorted_events.push({
+                type: "red_card",
+                time,
+                player,
+                team,
+            });
+        } else if (ev.type === "substitution") {
+            sorted_events.push({
+                type: "substitution",
+                time,
+                team,
+                player_in: ev.player_in || null,
+                player_out: ev.player_out || null,
+            });
+        } else if (ev.type === "penalty") {
+            sorted_events.push({
+                type: "penalty",
+                time,
+                player,
+                team,
+                score: ev.score || undefined,
+            });
         }
     });
 
@@ -125,33 +207,13 @@ export const mapRawToMatchEvents = (
         time: "90'"
     });
 
-    // Add synthetic substitution event at 60'
-    sorted_events.push({
-        type: "substitution",
-        time: "15'",
-        team: "away",
-        player_out: "زياد العونلي",
-        player_in: "محمد الحبيب يكن",
-    });
-
-    // Add synthetic penalty goal event at 75'
-    homeScore++; // update score if penalty is scored
-
-    sorted_events.push({
-        type: "penalty",
-        time: "75'",
-        team: "home",
-        player: "Leo Striker",
-        score: `${homeScore} - ${awayScore}`,
-    });
+    // Remove demo synthetic events; rely on backend data only
     // Sort all events by time
     sorted_events.sort((a, b) => {
         const parseTime = (t: string) => parseInt(t.replace(/[^0-9]/g, ''), 10) || 0;
         return parseTime(a.time) - parseTime(b.time);
     });
 
-
-
-    console.log("Sorted events:", sorted_events);
+    logger.debug("Sorted events:", sorted_events);
     return { finalScore, events: sorted_events };
 };

@@ -1,7 +1,7 @@
 // src/components/MatchTimeline.tsx
 import { Card } from "@/components/ui/card";
-import { GoalIcon, RedCardIcon, YellowCardIcon, SubstitutionIcon } from "@/components/icons";
-import type { MatchEvent, Player, Team } from "@/types/match";
+import { GoalIcon, RedCardIcon, YellowCardIcon, SubstitutionIcon, PenaltyIcon, RedYellowCardIcon } from "@/components/icons";
+import type { MatchEvent, Team } from "@/types/match";
 import { useEffect, useRef } from "react";
 import type { FC } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -139,7 +139,7 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                         </div>
                                     )}
 
-                                    {/* Yellow Card Event */}
+                                    {/* Red Card Event */}
                                     {event.type === "red_card" && (
                                         <div className="flex items-center gap-1 sm:gap-2">
                                             <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
@@ -147,6 +147,35 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                                     <PlayerBadge
                                                         player={event.player}
                                                         icon={<RedCardIcon />}
+                                                        iconAfter
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                            {/* Spacer */}
+                                            <div className="flex items-center justify-center">
+                                                <span className="text-xs font-bold opacity-0 whitespace-nowrap">0 - 0</span>
+                                            </div>
+                                            <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
+                                                {event.team === "away" && (
+                                                    <PlayerBadge
+                                                        player={event.player}
+                                                        icon={<RedCardIcon />}
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Yellow-Red (second yellow leading to red) */}
+                                    {event.type === "yellow_red" && (
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
+                                                {event.team === "home" && (
+                                                    <PlayerBadge
+                                                        player={event.player}
+                                                        icon={<RedYellowCardIcon />}
                                                         iconAfter
 
                                                         className="text-xs sm:text-sm"
@@ -156,11 +185,43 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
                                             {/* Spacer */}
                                             <div className="flex items-center justify-center">
                                                 <span className="text-xs font-bold opacity-0 whitespace-nowrap">0 - 0</span>
-                                            </div>                                              <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
+                                            </div>                                           <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
                                                 {event.team === "away" && (
                                                     <PlayerBadge
                                                         player={event.player}
-                                                        icon={<RedCardIcon />}
+                                                        icon={<RedYellowCardIcon />}
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Penalty Event */}
+                                    {event.type === "penalty" && (
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            <div className={`flex flex-1 min-w-0 justify-end ${event.team === "away" ? "opacity-50" : ""}`}>
+                                                {event.team === "home" && (
+                                                    <PlayerBadge
+                                                        player={event.player}
+                                                        icon={<PenaltyIcon />}
+                                                        iconAfter
+                                                        className="text-xs sm:text-sm"
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="flex items-center justify-center">
+                                                {event.score && (
+                                                    <span className="text-xs font-bold text-green-500 whitespace-nowrap">
+                                                        {event.score}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className={`flex flex-1 min-w-0 justify-start ${event.team === "home" ? "opacity-50" : ""}`}>
+                                                {event.team === "away" && (
+                                                    <PlayerBadge
+                                                        player={event.player}
+                                                        icon={<PenaltyIcon />}
                                                         className="text-xs sm:text-sm"
                                                     />
                                                 )}
@@ -234,7 +295,6 @@ const MatchTimeline: FC<MatchTimelineProps> = ({
 // Team badge with responsive sizing
 const TeamBadge: React.FC<{ team: Team; isHome: boolean }> = ({
     team,
-    isHome,
 }) => (
     <div className="flex flex-col items-center gap-1 ">
         <div className="rounded-full bg-muted flex items-center justify-center">
