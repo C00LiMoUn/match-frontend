@@ -1,9 +1,12 @@
 // src/lib/api.ts
 import type { MatchResultResponse } from "@/types/match";
 import { http } from "@/lib/http";
+import { logger } from "@/lib/logger";
 
 export interface AnalyzeInput {
     commentary: string;
+    home_team_id?: number;
+    away_team_id?: number;
 }
 
 export interface ApiError {
@@ -33,9 +36,13 @@ export const analyzeCommentary = async (
 
 export const analyzeMedia = async (
     file: File
+    ,
+    opts?: { home_team_id?: number; away_team_id?: number }
 ): Promise<MatchResultResponse> => {
     const formData = new FormData();
     formData.append('file', file);
+    if (opts?.home_team_id != null) formData.append('home_team_id', String(opts.home_team_id));
+    if (opts?.away_team_id != null) formData.append('away_team_id', String(opts.away_team_id));
 
     return await http<MatchResultResponse>({
         path: "/analyze-media",
@@ -44,4 +51,41 @@ export const analyzeMedia = async (
         // body typed as unknown to keep http generic
         body: formData as unknown as BodyInit,
     });
+};
+
+export const listTeams = async (): Promise<{ id: number; name: string }[]> => {
+    const res = await http<unknown>({ path: "/teams", method: "GET" });
+    const pickArray = (obj: unknown): unknown[] => {
+        if (Array.isArray(obj)) return obj;
+        if (obj && typeof obj === "object") {
+            const anyObj = obj as Record<string, unknown>;
+            for (const key of ["teams", "data", "items", "results"]) {
+                if (Array.isArray(anyObj[key])) return anyObj[key] as unknown[];
+            }
+        }
+        return [];
+    };
+    const arr = pickArray(res);
+    if (!arr.length) {
+        logger.warn("Teams response not an array; response=", res);
+        return [];
+    }
+    // Normalize to minimal shape { id, name }
+    const normalized = arr
+        .map((raw) => {
+            if (!raw || typeof raw !== "object") return null;
+            const r = raw as Record<string, unknown>;
+            const idSource = r.id ?? r.team_id ?? r.pk;
+            const id = typeof idSource === "number" ? idSource : Number(idSource);
+            const name = (r.name || r.team_name || r.display_name || r.title) as string | undefined;
+            if (!id || !name) return null;
+            return { id, name };
+        })
+        .filter((t): t is { id: number; name: string } => !!t);
+
+    if (!normalized.length) {
+        logger.warn("No valid teams after normalization; response=", res);
+        return [];
+    }
+    return normalized;
 };

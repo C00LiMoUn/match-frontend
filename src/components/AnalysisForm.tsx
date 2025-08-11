@@ -1,6 +1,6 @@
 // src/components/AnalysisForm.tsx
-import { useState } from "react";
-import { analyzeCommentary, analyzeMedia } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { analyzeCommentary, analyzeMedia, listTeams } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import MatchTimeline from "./MatchTimeline";
 import type { MatchResultResponse } from "@/types/match";
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, Send, History, FileText, UploadCloud } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AnalysisForm() {
     const [commentary, setCommentary] = useState("");
@@ -23,6 +24,21 @@ export default function AnalysisForm() {
     const [progress, setProgress] = useState(0);
     const [activeTab, setActiveTab] = useState("text");
     const [file, setFile] = useState<File | null>(null);
+    const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+    const [homeTeamId, setHomeTeamId] = useState<number | undefined>(undefined);
+    const [awayTeamId, setAwayTeamId] = useState<number | undefined>(undefined);
+
+    // Load team options on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const data = await listTeams();
+                setTeams(data);
+            } catch (err) {
+                logger.warn("Failed to load teams", err);
+            }
+        })();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,7 +90,7 @@ export default function AnalysisForm() {
         }, 300);
 
         try {
-            const data = await analyzeMedia(file);
+            const data = await analyzeMedia(file, { home_team_id: homeTeamId, away_team_id: awayTeamId });
             setMatchData(data);
             setProgress(100);
 
@@ -121,7 +137,7 @@ export default function AnalysisForm() {
         }, 300);
 
         try {
-            const data = await analyzeCommentary({ commentary: content });
+            const data = await analyzeCommentary({ commentary: content, home_team_id: homeTeamId, away_team_id: awayTeamId });
             setMatchData(data);
             setProgress(100);
 
@@ -175,8 +191,8 @@ export default function AnalysisForm() {
         });
     };
 
-    const homeTeam = { name: matchData?.home_team || "Home Team", logo: "/logo.png" };
-    const awayTeam = { name: matchData?.away_team || "Away Team", logo: "/logo.png" };
+    const homeTeam = { name: matchData?.home_team || teams.find(t => t.id === homeTeamId)?.name || "Home Team", logo: "/logo.png" };
+    const awayTeam = { name: matchData?.away_team || teams.find(t => t.id === awayTeamId)?.name || "Away Team", logo: "/logo.png" };
     const { finalScore, events } = matchData
         ? mapRawToMatchEvents(matchData)
         : { finalScore: "0 - 0", events: [] };
@@ -188,6 +204,40 @@ export default function AnalysisForm() {
                     <CardTitle className="text-xl">Analyze Commentary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Select
+                            value={homeTeamId != null ? String(homeTeamId) : ""}
+                            onValueChange={(v) => setHomeTeamId(v ? Number(v) : undefined)}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select home team" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {teams.map((t) => (
+                                    <SelectItem key={t.id} value={String(t.id)} dir="rtl">
+                                        {t.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        <Select
+                            value={awayTeamId != null ? String(awayTeamId) : ""}
+                            onValueChange={(v) => setAwayTeamId(v ? Number(v) : undefined)}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select away team" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {teams.map((t) => (
+                                    <SelectItem key={t.id} value={String(t.id)} dir="rtl">
+                                        {t.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                    </div>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="text">
