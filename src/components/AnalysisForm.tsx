@@ -1,6 +1,6 @@
 // src/components/AnalysisForm.tsx
 import { useEffect, useState } from "react";
-import { analyzeCommentary, analyzeMedia, listTeams } from "@/lib/api";
+import { analyzeCommentary, analyzeMedia, analyzeYoutube, listTeams } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import MatchTimeline from "./MatchTimeline";
 import type { MatchResultResponse } from "@/types/match";
@@ -24,6 +24,7 @@ export default function AnalysisForm() {
     const [progress, setProgress] = useState(0);
     const [activeTab, setActiveTab] = useState("text");
     const [file, setFile] = useState<File | null>(null);
+    const [youtubeUrl, setYoutubeUrl] = useState("");
     const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
     const [homeTeamId, setHomeTeamId] = useState<number | undefined>(undefined);
     const [awayTeamId, setAwayTeamId] = useState<number | undefined>(undefined);
@@ -60,6 +61,14 @@ export default function AnalysisForm() {
                     return;
                 }
             }
+        }
+
+        if (activeTab === "youtube") {
+            if (!youtubeUrl.trim()) {
+                toast.error("Please enter a YouTube link");
+                return;
+            }
+            return await analyzeYoutubeLink(youtubeUrl.trim());
         }
 
         if (!commentary.trim()) {
@@ -165,6 +174,53 @@ export default function AnalysisForm() {
         }
     };
 
+    const analyzeYoutubeLink = async (url: string) => {
+        setLoading(true);
+        setProgress(0);
+        setMatchData(null);
+
+        const toastId = toast.loading("Analyzing YouTube link...", {
+            description: "Fetching and processing the video"
+        });
+
+        const interval = setInterval(() => {
+            setProgress((prev) => {
+                if (prev >= 90) {
+                    clearInterval(interval);
+                    return prev;
+                }
+                return prev + 10;
+            });
+        }, 300);
+
+        try {
+            const data = await analyzeYoutube(url, { home_team_id: homeTeamId, away_team_id: awayTeamId });
+            setMatchData(data);
+            setProgress(100);
+
+            toast.success("Analysis Complete", {
+                id: toastId,
+                description: "Match events have been successfully extracted",
+                duration: 3000,
+            });
+        } catch (err) {
+            logger.error("YouTube analysis failed", err);
+            const errorMessage = err instanceof Error ? err.message : "Analysis failed";
+            toast.error("Analysis Error", {
+                id: toastId,
+                description: errorMessage,
+                action: {
+                    label: "Try again",
+                    onClick: () => analyzeYoutubeLink(url),
+                },
+                duration: 5000,
+            });
+        } finally {
+            setLoading(false);
+            clearInterval(interval);
+        }
+    };
+
     const handleExampleClick = () => {
         setCommentary(`45+2' - GOAL! Manchester United 1-0 Liverpool. Bruno Fernandes scores with a brilliant strike from outside the box!
         56' - Yellow card for Virgil van Dijk after a late challenge on Marcus Rashford.
@@ -172,6 +228,7 @@ export default function AnalysisForm() {
         89' - Substitution for Liverpool: Thiago Alcântara replaces Jordan Henderson.`);
         setActiveTab("text");
         setFile(null);
+        setYoutubeUrl("");
     };
 
     const readFileAsText = (file: File): Promise<string> => {
@@ -239,7 +296,7 @@ export default function AnalysisForm() {
 
                     </div>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
+                        <TabsList className="grid w-full grid-cols-3">
                             <TabsTrigger value="text">
                                 <FileText className="w-4 h-4 mr-2" />
                                 Text Input
@@ -247,6 +304,11 @@ export default function AnalysisForm() {
                             <TabsTrigger value="file">
                                 <UploadCloud className="w-4 h-4 mr-2" />
                                 File Upload
+                            </TabsTrigger>
+                            <TabsTrigger value="youtube">
+                                {/* Using FileText icon for now; can change */}
+                                <FileText className="w-4 h-4 mr-2" />
+                                YouTube Link
                             </TabsTrigger>
                         </TabsList>
 
@@ -268,6 +330,20 @@ export default function AnalysisForm() {
                                 isLoading={loading}
                             />
                         </TabsContent>
+
+                        <TabsContent value="youtube" className="pt-4">
+                            <div className="flex gap-2 items-center">
+                                <input
+                                    type="url"
+                                    inputMode="url"
+                                    placeholder="Paste YouTube URL..."
+                                    className="flex-1 border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={youtubeUrl}
+                                    onChange={(e) => setYoutubeUrl(e.target.value)}
+                                    disabled={loading}
+                                />
+                            </div>
+                        </TabsContent>
                     </Tabs>
 
                     <div className="flex gap-2">
@@ -275,7 +351,11 @@ export default function AnalysisForm() {
                             type="submit"
                             className="flex-1"
                             onClick={handleSubmit}
-                            disabled={loading || (activeTab === "file" && !file)}
+                            disabled={
+                                loading ||
+                                (activeTab === "file" && !file) ||
+                                (activeTab === "youtube" && !youtubeUrl.trim())
+                            }
                         >
                             {loading ? (
                                 <>

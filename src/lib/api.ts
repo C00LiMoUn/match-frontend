@@ -53,6 +53,40 @@ export const analyzeMedia = async (
     });
 };
 
+export const analyzeYoutube = async (
+    youtube_url: string,
+    opts?: { home_team_id?: number; away_team_id?: number }
+): Promise<MatchResultResponse> => {
+    // Create FormData object
+    const formData = new FormData();
+    formData.append("url", youtube_url); // must match backend parameter name
+
+    if (opts?.home_team_id != null) {
+        formData.append("home_team_id", String(opts.home_team_id));
+    }
+    if (opts?.away_team_id != null) {
+        formData.append("away_team_id", String(opts.away_team_id));
+    }
+
+    // Send request
+    const data = await http<MatchResultResponse>({
+        path: "/analyze-youtube",
+        method: "POST",
+        asFormData: true,
+        body: formData as unknown as BodyInit,
+    });
+
+    return {
+        ...data,
+        score: data.score ?? { home: 0, away: 0 },
+        analysis: {
+            events: data.analysis?.events ?? [],
+            players: data.analysis?.players ?? [],
+        },
+    };
+};
+
+
 export const listTeams = async (): Promise<{ id: number; name: string }[]> => {
     const res = await http<unknown>({ path: "/teams", method: "GET" });
     const pickArray = (obj: unknown): unknown[] => {
