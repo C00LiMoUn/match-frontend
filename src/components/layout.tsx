@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { Menu } from "lucide-react"
+import { ThemeToggle } from "@/components/ThemeToggle"
 import { Link } from "react-router-dom"
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -14,6 +15,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
                         <Link to="/" className="flex items-center gap-2 font-semibold">
                             <span className="">Soccer Analyzer</span>
                         </Link>
+                        <div className="ml-auto hidden md:block">
+                            <ThemeToggle />
+                        </div>
                     </div>
                     <div className="flex-1">
                         <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
@@ -74,6 +78,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <div className="w-full flex-1">
                         <h1 className="text-lg font-semibold">Soccer Commentary Analyzer</h1>
                     </div>
+                    <ThemeToggle />
                 </header>
 
                 <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
