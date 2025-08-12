@@ -69,6 +69,19 @@ export interface MatchResultResponse {
     events_csv: string;
     players_csv: string;
     analysis: AnalysisData;
+    // Optional artifacts and transcript for richer UI
+    artifacts?: {
+        excel?: string;
+        events_csv?: string;
+        players_csv?: string;
+        vtt?: string;
+        media_url?: string;
+    };
+    transcript_cues?: Array<{
+        start_ms: number;
+        end_ms: number;
+        text: string;
+    }>;
 }
 
 

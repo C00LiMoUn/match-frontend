@@ -1,5 +1,5 @@
 // src/components/AnalysisForm.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { analyzeCommentary, analyzeMedia, analyzeYoutube, listTeams } from "@/lib/api";
 import { logger } from "@/lib/logger";
 import MatchTimeline from "./MatchTimeline";
@@ -7,6 +7,8 @@ import type { MatchResultResponse } from "@/types/match";
 import { mapRawToMatchEvents } from "@/lib/matchMapper";
 import { FileUploader } from "@/components/ui/file-uploader";
 import TeamLineup from "@/components/TeamLineup";
+import type { TranscriptCue } from "@/types/transcript";
+import MediaTranscriptView from "@/components/MediaTranscriptView";
 
 // shadcn imports
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +27,7 @@ export default function AnalysisForm() {
     const [progress, setProgress] = useState(0);
     const [activeTab, setActiveTab] = useState("text");
     const [file, setFile] = useState<File | null>(null);
+    const [localMediaUrl, setLocalMediaUrl] = useState<string | null>(null);
     const [youtubeUrl, setYoutubeUrl] = useState("");
     const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
     const [homeTeamId, setHomeTeamId] = useState<number | undefined>(undefined);
@@ -41,6 +44,18 @@ export default function AnalysisForm() {
             }
         })();
     }, []);
+
+    // Create object URL for local audio/video file to enable playback
+    useEffect(() => {
+        if (file && (file.type.startsWith("audio/") || file.type.startsWith("video/"))) {
+            const url = URL.createObjectURL(file);
+            setLocalMediaUrl(url);
+            return () => {
+                URL.revokeObjectURL(url);
+            };
+        }
+        setLocalMediaUrl(null);
+    }, [file]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -255,6 +270,24 @@ export default function AnalysisForm() {
         ? mapRawToMatchEvents(matchData)
         : { finalScore: "0 - 0", events: [] };
     const players = matchData?.analysis?.players ?? [];
+    const transcriptCues: TranscriptCue[] = (matchData?.transcript_cues || []).map(c => ({
+        startMs: c.start_ms,
+        endMs: c.end_ms,
+        text: c.text,
+    }));
+    // Determine media source from user input
+    const mediaSource = useMemo(() => {
+        // Prefer local file object URL when available
+        if (localMediaUrl) return { type: "file", url: localMediaUrl } as const;
+        // Else explicit media URL from backend artifacts
+        const mediaUrl = matchData?.artifacts?.media_url;
+        if (mediaUrl) return { type: "file", url: mediaUrl } as const;
+        // Fallback to current user input when YouTube is used
+        if (activeTab === "youtube" && youtubeUrl.trim()) {
+            return { type: "youtube", url: youtubeUrl.trim() } as const;
+        }
+        return { type: "none" } as const;
+    }, [localMediaUrl, matchData?.artifacts?.media_url, activeTab, youtubeUrl]);
     logger.debug("Analysis result:", events);
     return (
         <div className="space-y-6">
@@ -407,6 +440,10 @@ export default function AnalysisForm() {
 
             {players.length > 0 && (
                 <TeamLineup homeTeam={homeTeam} awayTeam={awayTeam} players={players} />
+            )}
+
+            {transcriptCues.length > 0 && (
+                <MediaTranscriptView source={mediaSource} cues={transcriptCues} />
             )}
         </div>
     );
