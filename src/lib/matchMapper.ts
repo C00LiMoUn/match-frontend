@@ -12,6 +12,22 @@ export const mapRawToMatchEvents = (
     const { home_team, analysis } = rawData;
     const { events: rawEvents } = analysis;
 
+    const MINUTE_MS = 60_000;
+    // const HALF_TIME_MS = 45 * MINUTE_MS;
+
+    const parseClockToMs = (clock: string | undefined | null): number => {
+        if (!clock) return 0;
+        const s = String(clock).replace(/[\s'”‘’`]/g, "");
+        const m = /^(\d+)(?:\+(\d+))?$/.exec(s);
+        if (m) {
+            const baseMin = Number(m[1] || 0);
+            const addedMin = Number(m[2] || 0);
+            return (baseMin + addedMin) * MINUTE_MS;
+        }
+        const n = Number.parseInt(s, 10);
+        return Number.isFinite(n) ? n * MINUTE_MS : 0;
+    };
+
     // Safe extraction with defaults
     const eventsRaw: MatchEvent[] = Array.isArray(rawEvents)
         ? rawEvents
@@ -27,15 +43,15 @@ export const mapRawToMatchEvents = (
             }))
         : [];
 
-    // Merge yellow + red shown to the same player in the same minute into a single yellow_red
+    // Merge yellow + red shown to the same player at the same minute+added into a single yellow_red
     const events: MatchEvent[] = (() => {
         const toRemove = new Set<number>();
         const indexByKey: Record<string, number[]> = {};
         const makeKey = (ev: MatchEvent): string => {
-            const minute = parseInt(ev.time, 10) || 0;
+            const tMs = parseClockToMs(ev.time);
             const playerKey = ev.player || "";
             const teamKey = ev.team || "";
-            return `${minute}|${teamKey}|${playerKey}`;
+            return `${tMs}|${teamKey}|${playerKey}`;
         };
         eventsRaw.forEach((ev, idx) => {
             if (!ev.player || !ev.team) return; // only merge when player and team are known
@@ -58,162 +74,85 @@ export const mapRawToMatchEvents = (
         return eventsRaw.filter((_, idx) => !toRemove.has(idx));
     })();
 
-    // Initialize score tracking
+    // Initialize score tracking and build a single ordered list.
     let homeScore = 0;
     let awayScore = 0;
-    const sorted_events: MatchEvent[] = [];
+    const output: MatchEvent[] = [];
 
-    const firstHalfEvents: MatchEvent[] = events
-        .filter(ev => {
-            const numericTime = parseInt(ev.time, 10);
-            return !isNaN(numericTime) && numericTime <= 45;
-        })
-        .sort((a, b) => parseInt(a.time, 10) - parseInt(b.time, 10));
+    // Enrich with parsed components
+    const enriched = events.map((ev, idx) => {
+        const s = String(ev.time).replace(/[\s'”‘’`]/g, "");
+        const m = /^(\d+)(?:\+(\d+))?$/.exec(s);
+        const baseMin = m ? Number(m[1] || 0) : Number.parseInt(s, 10) || 0;
+        const addedMin = m ? Number(m[2] || 0) : 0;
+        return { ev, idx, t: (baseMin + addedMin) * MINUTE_MS, baseMin, addedMin };
+    });
+    enriched.sort((a, b) => (a.t - b.t) || (a.idx - b.idx));
 
-    // Process first half events
-    firstHalfEvents.forEach(ev => {
+    let insertedHT = false;
+    let insertedFT = false;
+    const hadFirstHalf = enriched.some(x => x.baseMin <= 45);
+
+    const push = (e: MatchEvent) => output.push(e);
+
+    const pushWith = (type: MatchEvent["type"], base: Partial<MatchEvent> & { time: string }) => {
+        push({
+            type,
+            time: base.time,
+            label: base.label ?? null,
+            score: base.score,
+            player: base.player ?? null,
+            player_in: base.player_in ?? null,
+            player_out: base.player_out ?? null,
+            team: base.team,
+            details: base.details ?? "",
+        } as MatchEvent);
+    };
+
+    for (const { ev, baseMin } of enriched) {
+        // Insert HT right before the first event whose base minute exceeds 45
+        if (!insertedHT && hadFirstHalf && baseMin > 45) {
+            pushWith("half", { time: "45'", label: "HT", score: `${homeScore} - ${awayScore}` });
+            insertedHT = true;
+        }
+        // Insert FT right before the first event whose base minute exceeds 90
+        if (!insertedFT && baseMin > 90) {
+            const finalScoreBeforeFT = `${homeScore} - ${awayScore}`;
+            pushWith("full", { time: "90'", label: "FT", score: finalScoreBeforeFT });
+            insertedFT = true;
+        }
+
         const isHome = ev.team === home_team;
         const team: "home" | "away" = isHome ? "home" : "away";
-        const player = ev.player;
-        const time = `${ev.time}'`;
+        const timeStr = `${ev.time}'`;
 
         if (ev.type === "goal") {
-            if (isHome) homeScore++;
-            else awayScore++;
-
-            sorted_events.push({
-                type: "goal",
-                time: time,
-                player: player,
-                team: team,
-                score: `${homeScore} - ${awayScore}`
-            });
+            if (isHome) homeScore++; else awayScore++;
+            pushWith("goal", { time: timeStr, player: ev.player ?? null, team, score: `${homeScore} - ${awayScore}` });
         } else if (ev.type === "yellow_card") {
-            sorted_events.push({
-                type: "yellow_card",
-                time,
-                player,
-                team
-            });
+            pushWith("yellow_card", { time: timeStr, player: ev.player ?? null, team });
         } else if (ev.type === "red_card") {
-            sorted_events.push({
-                type: "red_card",
-                time,
-                player,
-                team,
-            });
+            pushWith("red_card", { time: timeStr, player: ev.player ?? null, team });
         } else if (ev.type === "yellow_red") {
-            sorted_events.push({
-                type: "yellow_red",
-                time,
-                player,
-                team,
-            });
+            pushWith("yellow_red", { time: timeStr, player: ev.player ?? null, team });
         } else if (ev.type === "substitution") {
-            sorted_events.push({
-                type: "substitution",
-                time,
-                team,
-                player_in: ev.player_in || null,
-                player_out: ev.player_out || null,
-            });
+            pushWith("substitution", { time: timeStr, team, player_in: ev.player_in ?? null, player_out: ev.player_out ?? null });
         } else if (ev.type === "penalty") {
-            sorted_events.push({
-                type: "penalty",
-                time,
-                player,
-                team,
-                score: ev.score || undefined,
-            });
+            pushWith("penalty", { time: timeStr, player: ev.player ?? null, team, score: ev.score });
         }
-    });
-
-    // Add halftime event with current score
-    if (firstHalfEvents.length > 0) {
-        sorted_events.push({
-            type: "half",
-            label: "HT",
-            score: `${homeScore} - ${awayScore}`,
-            time: "45'"
-        });
     }
 
+    // If we had first-half events but never inserted HT (e.g., only first-half data), add it now
+    if (hadFirstHalf && !insertedHT) {
+        pushWith("half", { time: "45'", label: "HT", score: `${homeScore} - ${awayScore}` });
+        insertedHT = true;
+    }
 
-    // Second half events
-    const secondHalfEvents: MatchEvent[] = events
-        .filter(ev => {
-            const numericTime = parseInt(ev.time, 10);
-            return !isNaN(numericTime) && numericTime > 45;
-        })
-        .sort((a, b) => parseInt(a.time, 10) - parseInt(b.time, 10));
-
-    // Process second half events
-    secondHalfEvents.forEach(ev => {
-        const isHome = ev.team === home_team;
-        const team: "home" | "away" = isHome ? "home" : "away";
-        const player = ev.player;
-        const time = `${ev.time}'`;
-
-        if (ev.type === "goal") {
-            if (isHome) homeScore++;
-            else awayScore++;
-
-            sorted_events.push({
-                type: "goal",
-                time,
-                player,
-                team,
-                score: `${homeScore} - ${awayScore}`
-            });
-        } else if (ev.type === "yellow_card") {
-            sorted_events.push({
-                type: "yellow_card",
-                time,
-                player,
-                team
-            });
-        } else if (ev.type === "red_card") {
-            sorted_events.push({
-                type: "red_card",
-                time,
-                player,
-                team,
-            });
-        } else if (ev.type === "substitution") {
-            sorted_events.push({
-                type: "substitution",
-                time,
-                team,
-                player_in: ev.player_in || null,
-                player_out: ev.player_out || null,
-            });
-        } else if (ev.type === "penalty") {
-            sorted_events.push({
-                type: "penalty",
-                time,
-                player,
-                team,
-                score: ev.score || undefined,
-            });
-        }
-    });
-
-    // Final score
     const finalScore = `${homeScore} - ${awayScore}`;
-    sorted_events.push({
-        type: "full",
-        label: "FT",
-        score: finalScore,
-        time: "90'"
-    });
+    if (!insertedFT) {
+        pushWith("full", { time: "90'", label: "FT", score: finalScore });
+    }
 
-    // Remove demo synthetic events; rely on backend data only
-    // Sort all events by time
-    sorted_events.sort((a, b) => {
-        const parseTime = (t: string) => parseInt(t.replace(/[^0-9]/g, ''), 10) || 0;
-        return parseTime(a.time) - parseTime(b.time);
-    });
-
-    logger.debug("Sorted events:", sorted_events);
-    return { finalScore, events: sorted_events };
+    logger.debug("Sorted events:", output);
+    return { finalScore, events: output };
 };
