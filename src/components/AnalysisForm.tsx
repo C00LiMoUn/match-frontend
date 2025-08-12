@@ -6,6 +6,7 @@ import MatchTimeline from "./MatchTimeline";
 import type { MatchResultResponse } from "@/types/match";
 import { mapRawToMatchEvents } from "@/lib/matchMapper";
 import { FileUploader } from "@/components/ui/file-uploader";
+import TeamLineup from "@/components/TeamLineup";
 
 // shadcn imports
 import { Textarea } from "@/components/ui/textarea";
@@ -253,6 +254,7 @@ export default function AnalysisForm() {
     const { finalScore, events } = matchData
         ? mapRawToMatchEvents(matchData)
         : { finalScore: "0 - 0", events: [] };
+    const players = matchData?.analysis?.players ?? [];
     logger.debug("Analysis result:", events);
     return (
         <div className="space-y-6">
@@ -401,6 +403,10 @@ export default function AnalysisForm() {
                         />
                     </CardContent>
                 </Card>
+            )}
+
+            {players.length > 0 && (
+                <TeamLineup homeTeam={homeTeam} awayTeam={awayTeam} players={players} />
             )}
         </div>
     );

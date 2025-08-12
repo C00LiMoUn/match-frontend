@@ -26,6 +26,7 @@ export interface Player {
     name: string;
     team: string;
     position?: PlayerPosition | null;
+    number?: number | null;
 }
 
 export interface MatchEvent {
